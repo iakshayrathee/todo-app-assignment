@@ -1,5 +1,5 @@
 import { handleApiError, showToast, showLoadingToast, showSuccessToast } from './toast';
-import { ApiError, ApiSuccess } from './validations';
+import { ApiError } from './validations';
 
 // Enhanced fetch wrapper with error handling and loading states
 export class ApiClient {
@@ -219,7 +219,8 @@ export class ApiClient {
 // Create singleton instance
 export const api = new ApiClient();
 
-// Utility functions for common operations
+// API utility functions
+
 export const todoApi = {
   getAll: (filter?: string, search?: string) => api.getTodos(filter, search),
   create: (data: Parameters<typeof api.createTodo>[0]) => api.createTodo(data),

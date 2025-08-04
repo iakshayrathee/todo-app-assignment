@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { TodoList } from './todo-list';
 import { Todo } from '@/lib/db/schema';
 
@@ -43,7 +43,7 @@ export const TodosClient = forwardRef<TodosClientRef, TodosClientProps>(
     fetchTodos();
   }, [userId, filter, search]);
 
-  const refreshTodos = async () => {
+  const refreshTodos = useCallback(async () => {
     try {
       const response = await fetch(`/api/todos?userId=${userId}&filter=${filter}&search=${encodeURIComponent(search)}`);
       
@@ -57,7 +57,7 @@ export const TodosClient = forwardRef<TodosClientRef, TodosClientProps>(
       console.error('Error updating todos:', err);
       setError('Failed to update todos. Please try again.');
     }
-  };
+  }, [userId, filter, search]);
 
   // Expose refreshTodos method to parent components
   useImperativeHandle(ref, () => ({

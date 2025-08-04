@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { pusherServer } from '@/lib/pusher';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,10 +33,49 @@ export async function POST(request: NextRequest) {
         .set({ approved: true })
         .where(eq(users.id, userId));
 
+      // Notify all admins about the approval
+      try {
+
+        const admins = await db
+          .select()
+          .from(users)
+          .where(eq(users.role, 'admin'));
+
+        for (const admin of admins) {
+          // Send UI update event (hyphen for PendingUsersClient)
+          await pusherServer.trigger(
+            `private-user-${admin.id}`,
+            'user-approved',
+            { userId }
+          );
+        }
+      } catch (error) {
+        console.error('Error sending approval notification:', error);
+      }
+
       return NextResponse.json({ message: 'User approved successfully' });
     } else {
       // Reject the user (delete their account)
       await db.delete(users).where(eq(users.id, userId));
+
+      // Notify all admins about the rejection
+      try {
+        const admins = await db
+          .select()
+          .from(users)
+          .where(eq(users.role, 'admin'));
+
+        for (const admin of admins) {
+          // Send UI update event (hyphen for PendingUsersClient)
+          await pusherServer.trigger(
+            `private-user-${admin.id}`,
+            'user-approved',
+            { userId }
+          );
+        }
+      } catch (error) {
+        console.error('Error sending rejection notification:', error);
+      }
 
       return NextResponse.json({ message: 'User rejected and removed' });
     }

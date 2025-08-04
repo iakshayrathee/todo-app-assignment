@@ -3,13 +3,12 @@
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { redirect } from 'next/navigation';
-import { Suspense, useEffect, useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { CreateTodoForm } from '@/components/todos/create-todo-form';
+import { TodosClient, TodosClientRef } from '@/components/todos/todos-client';
 import { TodoFilters } from '@/components/todos/todo-filters';
 import { ExportTodos } from '@/components/todos/export-todos';
-import { TodoSkeleton } from '@/components/todos/todo-skeleton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { TodosClient, TodosClientRef } from '@/components/todos/todos-client';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 export default function Dashboard() {
@@ -21,6 +20,9 @@ export default function Dashboard() {
     },
   });
 
+  // Create a ref to trigger todos refresh
+  const todosClientRef = useRef<TodosClientRef | null>(null);
+
   if (status === 'loading') {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
@@ -29,12 +31,24 @@ export default function Dashboard() {
     return null; // This should not happen due to required: true, but TypeScript needs it
   }
 
+  if (!session.user.approved) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Account Pending Approval</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Your account is pending admin approval. Please wait for approval before accessing the dashboard.</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const userId = parseInt(session.user.id);
   const filter = searchParams?.get('filter') || 'all';
   const search = searchParams?.get('search') || '';
-  
-  // Create a ref to trigger todos refresh
-  const todosClientRef = useRef<TodosClientRef | null>(null);
   
   const handleTodoCreated = () => {
     // Trigger refresh of todos list
@@ -91,23 +105,21 @@ export default function Dashboard() {
                       </span>
                       {search && (
                         <span className="text-primary font-medium">
-                          matching "{search}"
+                          matching &ldquo;{search}&rdquo;
                         </span>
                       )}
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-4">
-                    <ErrorBoundary>
-                      <TodosClient 
-                        ref={todosClientRef}
-                        userId={userId}
-                        filter={filter}
-                        search={search}
-                      />
-                    </ErrorBoundary>
-                  </div>
+                <CardContent className="pt-0 pb-4">
+                  <ErrorBoundary>
+                    <TodosClient 
+                      ref={todosClientRef}
+                      userId={userId}
+                      filter={filter}
+                      search={search}
+                    />
+                  </ErrorBoundary>
                 </CardContent>
               </Card>
             </div>

@@ -1,21 +1,20 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Badge } from '@/components/ui/badge';
 import { CalendarDays, Tag, Plus, Loader2 } from 'lucide-react';
-import { todoFormSchema, type TodoFormValues } from '@/lib/validations';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { todoApi } from '@/lib/api';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
-import { DateTimePicker } from '@/components/ui/date-time-picker';
-import { z } from 'zod';
 
 interface CreateTodoFormProps {
   onSuccess?: () => void;
@@ -59,7 +58,12 @@ export function CreateTodoForm({ onSuccess }: CreateTodoFormProps = {}) {
       });
 
       // Reset form on success
-      form.reset();
+      form.reset({
+        title: '',
+        description: '',
+        dueDate: '',
+        tags: '',
+      });
       
       // Call onSuccess callback to trigger real-time UI update
       if (onSuccess) {

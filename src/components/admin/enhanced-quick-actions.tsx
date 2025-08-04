@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { AllUsersModal } from './all-users-modal';
-import { Users, Download, FileText, Database } from 'lucide-react';
+import { Users, FileText, Database } from 'lucide-react';
 import { toast } from 'sonner';
 
 export function EnhancedQuickActions() {

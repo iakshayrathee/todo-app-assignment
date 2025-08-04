@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { toast } from 'sonner';
 import { pusherClient } from '@/lib/pusher';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserApprovalCard } from './user-approval-card';
@@ -33,7 +32,7 @@ export function PendingUsersClient({ initialPendingUsers }: PendingUsersClientPr
     const channel = pusherClient.subscribe(`private-user-${session.user.id}`);
 
     // Handle real-time user registration updates (data only, no notifications)
-    channel.bind('user-registered', (data: any) => {
+    channel.bind('user-registered', (data: { userId: number; userName: string; userEmail: string; timestamp: string }) => {
       const newUser: User = {
         id: data.userId,
         name: data.userName,
@@ -59,6 +58,11 @@ export function PendingUsersClient({ initialPendingUsers }: PendingUsersClientPr
           approvalSection.scrollIntoView({ behavior: 'smooth' });
         }
       }, 100);
+    });
+
+    // Handle user approval/rejection updates
+    channel.bind('user-approved', (data: { userId: number }) => {
+      setPendingUsers(prev => prev.filter(user => user.id !== data.userId));
     });
 
     return () => {

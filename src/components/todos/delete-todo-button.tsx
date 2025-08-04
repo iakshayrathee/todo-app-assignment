@@ -31,7 +31,11 @@ export function DeleteTodoButton({ todoId, onSuccess }: DeleteTodoButtonProps) {
       if (response.ok) {
         toast.success('🗑️ Task deleted successfully!');
         setOpen(false);
-        onSuccess ? onSuccess() : router.refresh();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          router.refresh();
+        }
       } else {
         throw new Error('Failed to delete task');
       }

@@ -83,10 +83,9 @@ export async function sendNotification(options: NotificationOptions) {
 
 // Helper function to send task due notifications
 export async function sendTaskDueNotification(
-  userId: number | string,
+  userId: string,
   taskTitle: string,
-  dueDate: Date,
-  taskId: number
+  dueDate: Date
 ) {
   const timeUntilDue = Math.ceil((dueDate.getTime() - Date.now()) / (1000 * 60 * 60));
   
@@ -105,8 +104,7 @@ export async function sendTaskDueNotification(
 // Helper function to send task completion notification to admin
 export async function sendTaskCompleteNotification(
   taskTitle: string,
-  userName: string,
-  taskId: number
+  userName: string
 ) {
   await sendNotification({
     type: 'success',
@@ -153,7 +151,7 @@ export async function sendNewUserNotification(
         }
       );
 
-      // Send real-time data update
+      // Send real-time data update for UI (hyphen for PendingUsersClient)
       await pusherServer.trigger(
         `private-user-${admin.id}`,
         'user-registered',

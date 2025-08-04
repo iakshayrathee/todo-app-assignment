@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +15,7 @@ export default function SignUp() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [error, setError] = useState('');
+
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -22,17 +23,16 @@ export default function SignUp() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
     setSuccess('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      toast.error("Passwords do not match");
       setLoading(false);
       return;
     }
 
     if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+      toast.error("Password must be at least 6 characters");
       setLoading(false);
       return;
     }
@@ -46,19 +46,18 @@ export default function SignUp() {
         body: JSON.stringify({ name, email, password }),
       });
 
-      const data = await response.json();
+      await response.json();
 
       if (response.ok) {
-        setSuccess('Account created successfully! Please wait for admin approval.');
+        setSuccess('Account created successfully! Please wait for admin approval before signing in.');
         setTimeout(() => {
           router.push('/auth/signin');
         }, 2000);
       } else {
-        setError(data.error || 'An error occurred during sign up');
+        setLoading(false);
+        toast.error('Failed to create account. Please try again.');
       }
-    } catch (error) {
-      setError('An error occurred during sign up');
-    } finally {
+    } catch {
       setLoading(false);
     }
   };
@@ -74,12 +73,6 @@ export default function SignUp() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            
             {success && (
               <Alert>
                 <AlertDescription>{success}</AlertDescription>

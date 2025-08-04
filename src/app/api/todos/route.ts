@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { todos, users } from '@/lib/db/schema';
-import { eq, and, or, desc, sql, type SQL } from 'drizzle-orm';
-import { sendNotification, sendTaskCompleteNotification } from '@/lib/notifications';
+import { eq, and, or, desc, sql } from 'drizzle-orm';
+import { sendNotification } from '@/lib/notifications';
+import { pusherServer } from '@/lib/pusher';
 
 // GET - Fetch user's todos with optional filtering and searching
 export async function GET(request: NextRequest) {
@@ -33,12 +34,13 @@ export async function GET(request: NextRequest) {
     // Apply search filter if provided
     if (search) {
       const searchTerm = `%${search.toLowerCase()}%`;
-      const searchConditions: SQL[] = [
+      const searchCondition = or(
         sql`LOWER(${todos.title}) LIKE ${searchTerm}`,
         sql`LOWER(COALESCE(${todos.description}, '')) LIKE ${searchTerm}`
-      ];
-      
-      conditions.push(or(...searchConditions));
+      );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     // Execute the query with all conditions
@@ -114,6 +116,28 @@ export async function POST(request: NextRequest) {
           });
         }, notificationTime.getTime() - now.getTime());
       }
+    }
+
+    // Send real-time event to admin dashboard for stats update
+    try {
+      const admins = await db
+        .select()
+        .from(users)
+        .where(eq(users.role, 'admin'));
+
+      for (const admin of admins) {
+        await pusherServer.trigger(
+          `private-user-${admin.id}`,
+          'todo-created',
+          {
+            todoId: newTodo.id,
+            userId: userId,
+            title: newTodo.title
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Error sending todo creation notification:', error);
     }
 
     return NextResponse.json(newTodo, { status: 201 });
@@ -216,9 +240,33 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    const todoToDelete = existingTodo[0];
+
     await db
       .delete(todos)
       .where(and(eq(todos.id, id), eq(todos.userId, userId)));
+
+    // Send real-time event to admin dashboard for stats update
+    try {
+      const admins = await db
+        .select()
+        .from(users)
+        .where(eq(users.role, 'admin'));
+
+      for (const admin of admins) {
+        await pusherServer.trigger(
+          `private-user-${admin.id}`,
+          'todo-deleted',
+          {
+            todoId: id,
+            userId: userId,
+            wasCompleted: todoToDelete.completed
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Error sending todo deletion notification:', error);
+    }
 
     return NextResponse.json({ message: 'Todo deleted successfully' });
   } catch (error) {

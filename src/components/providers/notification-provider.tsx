@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
 import { useSession } from 'next-auth/react';
 import { pusherClient } from '@/lib/pusher';
 import { toast } from 'sonner';
+import type { Channel } from 'pusher-js';
 
 interface Notification {
   id: string;
@@ -31,13 +32,13 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { data: session } = useSession();
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<Channel | null>(null);
 
   // Generate a unique ID for each notification
   const generateId = () => Math.random().toString(36).substring(2, 11);
 
   // Add a new notification (store only, don't show toast to avoid duplicates)
-  const addNotification = (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
       ...notification,
       id: generateId(),
@@ -46,8 +47,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     };
 
     setNotifications((prev) => [newNotification, ...prev]);
-    // Note: Toast notifications are handled by individual components to avoid duplicates
-  };
+  }, [setNotifications]);
 
   // Mark a notification as read
   const markAsRead = (id: string) => {
@@ -68,16 +68,17 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Set up Pusher subscription
   useEffect(() => {
-    if (!session?.user?.id) {
+    if (!session?.user || !('id' in session.user)) {
       console.log('No user session, skipping Pusher setup');
       return;
     }
 
-    console.log('Initializing Pusher with user ID:', session.user.id);
+    const user = session.user as { id: string; role: string };
+    console.log('Initializing Pusher with user ID:', user.id);
     
     // Enable Pusher debugging
     if (process.env.NODE_ENV === 'development') {
-      // @ts-ignore - Enable Pusher logging
+      // @ts-expect-error - Pusher debug property
       window.PUSHER_DEBUG = true;
       console.log('Pusher debug logging enabled');
     }
@@ -92,7 +93,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     logConnectionState();
     
     // Bind to all connection state changes
-    connection.bind('state_change', (states: any) => {
+    connection.bind('state_change', (states: { current: string; previous: string }) => {
       console.log('Pusher connection state changed:', states);
     });
     
@@ -100,12 +101,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       console.log('Pusher connected successfully');    
     });
     
-    connection.bind('error', (err: any) => {
+    connection.bind('error', (err: Error) => {
       console.error('Pusher connection error:', err);
     });
 
     // Subscribe to user's private channel
-    const channelName = `private-user-${session.user.id}`;
+    const channelName = `private-user-${user.id}`;
     console.log('Attempting to subscribe to channel:', channelName);
     
     try {
@@ -116,7 +117,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         console.log('Successfully subscribed to channel:', channelName);
       });
       
-      channelRef.current.bind('pusher:subscription_error', (err: any) => {
+      channelRef.current.bind('pusher:subscription_error', (err: Error) => {
         console.error('Failed to subscribe to channel:', channelName, err);
       });
       
@@ -127,43 +128,81 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
 
     // Listen for new notifications (store and show toast)
-    channelRef.current.bind('notification', (data: any) => {
+    const handleTaskDue = (data: { taskId: string; title: string; dueDate: string }) => {
       console.log('Received notification event on channel:', channelName, data);
       
       // Store the notification
       addNotification({
-        type: data.type || 'info',
+        type: 'info',
         title: data.title,
-        message: data.message,
-        action: data.action ? {
-          label: data.action.label,
-          onClick: () => window.location.href = data.action.url
-        } : undefined,
+        message: `Task ${data.taskId} is due on ${data.dueDate}`,
+        action: undefined,
       });
 
       // Show toast notification
-      if (data.action?.url) {
-        toast(data.title, {
-          description: data.message,
+      toast(data.title, {
+        description: `Task ${data.taskId} is due on ${data.dueDate}`,
+      });
+    };
+
+    const handleUserRegistered = (data: { userId: number; userName: string; userEmail: string; timestamp: string }) => {
+      console.log('Received user registration notification on channel:', channelName, data);
+      
+      // Only show toast notification for admins
+      if (user.role === 'admin') {
+        // Store the notification
+        addNotification({
+          type: 'info',
+          title: 'New User Registration',
+          message: `${data.userName} (${data.userEmail}) has registered and is pending approval.`,
           action: {
-            label: data.action.label,
-            onClick: () => window.location.href = data.action.url,
+            label: 'Review User',
+            onClick: () => window.location.href = '/admin'
           },
         });
-      } else {
-        toast(data.title, {
-          description: data.message,
+
+        // Show toast notification
+        toast('New User Registration', {
+          description: `${data.userName} (${data.userEmail}) has registered and is pending approval.`,
+          action: {
+            label: 'Review',
+            onClick: () => window.location.href = '/admin'
+          }
         });
       }
-    });
+    };
+
+    const handleUserApproved = (data: { userId: number }) => {
+      console.log('Received user approval notification on channel:', channelName, data);
+      
+      // Only show toast notification for admins
+      if (user.role === 'admin') {
+        // Store the notification
+        addNotification({
+          type: 'success',
+          title: 'User Approval Update',
+          message: `User has been processed successfully.`,
+          action: undefined,
+        });
+
+        // Show toast notification
+        toast('User Approval Update', {
+          description: `User has been processed successfully.`,
+        });
+      }
+    };
+
+    channelRef.current.bind('task_due', handleTaskDue);
+    channelRef.current.bind('user-registered', handleUserRegistered);
+    channelRef.current.bind('user-approved', handleUserApproved);
 
     // Log all events received on the channel (for debugging)
-    channelRef.current.bind_global((eventName: string, data: any) => {
+    channelRef.current.bind_global((eventName: string, data: Record<string, unknown>) => {
       console.log(`Global event ${eventName} received:`, data);
     });
 
     // Subscribe to admin channel if user is admin
-    if (session.user.role === 'admin') {
+    if (user.role === 'admin') {
       console.log('User is admin, subscribing to admin channel');
       const adminChannel = pusherClient.subscribe('private-admin');
       
@@ -171,10 +210,10 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         console.log('Successfully subscribed to admin channel');
       });
       
-      adminChannel.bind('admin-notification', (data: any) => {
+      adminChannel.bind('admin-notification', (data: { type?: string; title: string; message: string; action?: { label: string; onClick: () => void } }) => {
         console.log('Received admin notification:', data);
         addNotification({
-          type: data.type || 'info',
+          type: (data.type as 'info' | 'success' | 'warning' | 'error') || 'info',
           title: data.title,
           message: data.message,
           action: data.action,
@@ -187,11 +226,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       if (channelRef.current) {
         pusherClient.unsubscribe(channelRef.current.name);
       }
-      if (session.user.role === 'admin') {
+      if (user.role === 'admin') {
         pusherClient.unsubscribe('private-admin');
       }
     };
-  }, [session?.user?.id, session?.user?.role]);
+  }, [session, addNotification]);
 
   // Calculate unread count
   const unreadCount = notifications.filter((n) => !n.read).length;

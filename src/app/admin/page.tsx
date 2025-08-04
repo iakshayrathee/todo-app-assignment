@@ -1,22 +1,14 @@
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { users, todos } from '@/lib/db/schema';
 import { eq, count } from 'drizzle-orm';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { UserApprovalCard } from '@/components/admin/user-approval-card';
-import { TodosOverview } from '@/components/admin/todos-overview';
 import { ErrorBoundary } from '@/components/ui/error-boundary';
 
 import { PendingUsersClient } from '@/components/admin/pending-users-client';
+import { AdminStatsClient } from '@/components/admin/admin-stats-client';
 import { EnhancedQuickActions } from '@/components/admin/enhanced-quick-actions';
-import { Users, Clock, CheckCircle, TrendingUp, AlertCircle } from 'lucide-react';
+import { TodosOverview } from '@/components/admin/todos-overview';
 
 export default async function AdminDashboard() {
-  const session = await getServerSession(authOptions);
-
   // Get pending users for approval
   const pendingUsers = await db.query.users.findMany({
     where: eq(users.approved, false),
@@ -56,71 +48,8 @@ export default async function AdminDashboard() {
               </p>
             </div>
 
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-              <Card className="relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -mr-10 -mt-10" />
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Users</CardTitle>
-                  <Users className="h-4 w-4 text-blue-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Registered users
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/10 rounded-full -mr-10 -mt-10" />
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Pending Approvals</CardTitle>
-                  <Clock className="h-4 w-4 text-orange-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-orange-600">{stats.pendingUsers}</div>
-                  <div className="flex items-center gap-2 mt-1">
-                    {stats.pendingUsers > 0 ? (
-                      <Badge variant="destructive" className="text-xs">
-                        <AlertCircle className="w-3 h-3 mr-1" />
-                        Needs attention
-                      </Badge>
-                    ) : (
-                      <p className="text-xs text-muted-foreground">All caught up!</p>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -mr-10 -mt-10" />
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Total Tasks</CardTitle>
-                  <TrendingUp className="h-4 w-4 text-purple-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">{stats.totalTodos}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Created by users
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card className="relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-20 h-20 bg-green-500/10 rounded-full -mr-10 -mt-10" />
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground">Completion Rate</CardTitle>
-                  <CheckCircle className="h-4 w-4 text-green-500" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">{stats.completionRate}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {stats.completedTodos} of {stats.totalTodos} completed
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
+            {/* Stats Cards - Real-time Client Component */}
+            <AdminStatsClient initialStats={stats} />
 
             {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">

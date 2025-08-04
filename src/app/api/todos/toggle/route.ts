@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { todos, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { sendTaskCompleteNotification } from '@/lib/notifications';
+import { pusherServer } from '@/lib/pusher';
 
 export async function POST(request: NextRequest) {
   try {
@@ -59,10 +60,31 @@ export async function POST(request: NextRequest) {
       if (user) {
         await sendTaskCompleteNotification(
           updatedTodo.title,
-          user.name || user.email || 'A user',
-          updatedTodo.id
+          user.name || user.email || 'A user'
         );
       }
+    }
+
+    // Send real-time event to admin dashboard for stats update
+    try {
+      const admins = await db
+        .select()
+        .from(users)
+        .where(eq(users.role, 'admin'));
+
+      for (const admin of admins) {
+        await pusherServer.trigger(
+          `private-user-${admin.id}`,
+          'todo-completed',
+          {
+            todoId: todoId,
+            userId: userId,
+            completed: completed
+          }
+        );
+      }
+    } catch (error) {
+      console.error('Error sending todo completion notification:', error);
     }
 
     return NextResponse.json(updatedTodo);

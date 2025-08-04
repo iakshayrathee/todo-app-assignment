@@ -104,7 +104,7 @@ export function TodoList({ todos, onUpdate }: TodoListProps) {
         />
       )}
 
-      <div className={`space-y-3 ${todos.length > 4 ? 'max-h-[400px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800' : ''}`}>
+      <div className={`space-y-3 ${todos.length > 3 ? 'max-h-[600px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800' : ''}`}>
         {todos.map((todo) => (
           <div key={todo.id} className="flex items-start space-x-3">
             {(isSelecting || selectedIds.length > 0) && (

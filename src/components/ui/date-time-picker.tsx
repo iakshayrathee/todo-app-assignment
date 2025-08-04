@@ -41,9 +41,31 @@ export function DateTimePicker({
   const [selectedDate, setSelectedDate] = React.useState<Date | undefined>(
     value ? new Date(value) : undefined
   );
-  const [timeValue, setTimeValue] = React.useState<string>(
-    value ? formatTime(new Date(value)) : '09:00'
-  );
+  const [timeValue, setTimeValue] = React.useState<string>(() => {
+    if (value) {
+      return formatTime(new Date(value));
+    }
+    // Set to current time rounded to nearest 15 minutes
+    const now = new Date();
+    const minutes = Math.round(now.getMinutes() / 15) * 15;
+    now.setMinutes(minutes, 0, 0);
+    return formatTime(now);
+  });
+
+  // Reset internal state when value prop changes to empty
+  React.useEffect(() => {
+    if (!value) {
+      setSelectedDate(undefined);
+      // Reset to current time
+      const now = new Date();
+      const minutes = Math.round(now.getMinutes() / 15) * 15;
+      now.setMinutes(minutes, 0, 0);
+      setTimeValue(formatTime(now));
+    } else {
+      setSelectedDate(new Date(value));
+      setTimeValue(formatTime(new Date(value)));
+    }
+  }, [value]);
 
   function formatTime(date: Date): string {
     return date.toTimeString().slice(0, 5);
@@ -84,16 +106,7 @@ export function DateTimePicker({
     }
   };
 
-  const handleManualInput = (dateTimeString: string) => {
-    if (dateTimeString) {
-      const date = new Date(dateTimeString);
-      if (!isNaN(date.getTime())) {
-        setSelectedDate(date);
-        setTimeValue(formatTime(date));
-        onChange?.(date.toISOString());
-      }
-    }
-  };
+
 
   const clearDateTime = () => {
     setSelectedDate(undefined);
@@ -125,7 +138,7 @@ export function DateTimePicker({
     return options;
   }, []);
 
-  const today = new Date().toISOString().slice(0, 16);
+
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -195,17 +208,7 @@ export function DateTimePicker({
               </Select>
             </div>
 
-            {/* Manual Input */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Or enter manually</Label>
-              <Input
-                type="datetime-local"
-                value={selectedDate ? selectedDate.toISOString().slice(0, 16) : ''}
-                onChange={(e) => handleManualInput(e.target.value)}
-                min={today}
-                className="h-11"
-              />
-            </div>
+
 
             {/* Action Buttons */}
             <div className="flex gap-2 pt-4">

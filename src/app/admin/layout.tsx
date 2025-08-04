@@ -1,4 +1,4 @@
-import { getServerSession } from 'next-auth';
+import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
@@ -11,7 +11,7 @@ export default async function AdminLayout({
 }) {
   const session = await getServerSession(authOptions);
 
-  if (!session || session.user.role !== 'admin') {
+  if (!session || !session.user?.role || session.user.role !== 'admin') {
     redirect('/auth/signin');
   }
 

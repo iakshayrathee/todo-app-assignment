@@ -46,7 +46,11 @@ export function TodoItem({ todo, onUpdate }: TodoItemProps) {
             ? `✅ Task "${todo.title}" marked as complete!` 
             : `🔄 Task "${todo.title}" marked as incomplete`
         );
-        onUpdate ? onUpdate() : router.refresh();
+        if (onUpdate) {
+          onUpdate();
+        } else {
+          router.refresh();
+        }
       } else {
         throw new Error('Failed to update task');
       }
@@ -94,7 +98,9 @@ export function TodoItem({ todo, onUpdate }: TodoItemProps) {
                       onClose={() => setEditOpen(false)} 
                       onSuccess={() => {
                         setEditOpen(false);
-                        onUpdate?.();
+                        if (onUpdate) {
+          onUpdate();
+        }
                       }}
                     />
                   </DialogContent>
