@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { todos, users } from '@/lib/db/schema';
 import { eq, and, or, desc, sql } from 'drizzle-orm';
-import { sendNotification } from '@/lib/notifications';
+import { sendNotification, sendRecentTodoNotification } from '@/lib/notifications';
 import { pusherServer } from '@/lib/pusher';
 
 // GET - Fetch user's todos with optional filtering and searching
@@ -136,6 +136,14 @@ export async function POST(request: NextRequest) {
           }
         );
       }
+      
+      // Send recent todo notification
+      await sendRecentTodoNotification(
+        newTodo.id,
+        newTodo.title,
+        userId,
+        'created'
+      );
     } catch (error) {
       console.error('Error sending todo creation notification:', error);
     }
@@ -195,6 +203,18 @@ export async function PUT(request: NextRequest) {
       })
       .where(and(eq(todos.id, id), eq(todos.userId, userId)))
       .returning();
+      
+    // Send recent todo notification for update
+    try {
+      await sendRecentTodoNotification(
+        updatedTodo.id,
+        updatedTodo.title,
+        userId,
+        'updated'
+      );
+    } catch (error) {
+      console.error('Error sending todo update notification:', error);
+    }
 
     return NextResponse.json(updatedTodo);
   } catch (error) {
@@ -264,6 +284,14 @@ export async function DELETE(request: NextRequest) {
           }
         );
       }
+      
+      // Send recent todo notification for deletion
+      await sendRecentTodoNotification(
+        id,
+        todoToDelete.title,
+        userId,
+        'deleted'
+      );
     } catch (error) {
       console.error('Error sending todo deletion notification:', error);
     }

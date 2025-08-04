@@ -27,12 +27,25 @@ export function PendingUsersClient({ initialPendingUsers }: PendingUsersClientPr
   const [pendingUsers, setPendingUsers] = useState<User[]>(initialPendingUsers);
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    if (!session?.user?.id || session?.user?.role !== 'admin') {
+      console.log('[PendingUsersClient] No session or not admin, skipping Pusher setup');
+      return;
+    }
 
-    const channel = pusherClient.subscribe(`private-user-${session.user.id}`);
+    const channelName = `private-user-${session.user.id}`;
+    console.log('[PendingUsersClient] Setting up Pusher subscription with user ID:', session.user.id);
+    
+    // Clean up any existing subscription
+    pusherClient.unsubscribe(channelName);
+    
+    // Subscribe to the channel
+    const channel = pusherClient.subscribe(channelName);
+    console.log('[PendingUsersClient] Subscribed to channel:', channelName);
 
-    // Handle real-time user registration updates (data only, no notifications)
-    channel.bind('user-registered', (data: { userId: number; userName: string; userEmail: string; timestamp: string }) => {
+    // Handle real-time user registration updates
+    const handleUserRegistered = (data: { userId: number; userName: string; userEmail: string; timestamp: string }) => {
+      console.log('[PendingUsersClient] Received user registration:', data);
+      
       const newUser: User = {
         id: data.userId,
         name: data.userName,
@@ -51,25 +64,36 @@ export function PendingUsersClient({ initialPendingUsers }: PendingUsersClientPr
         return [newUser, ...prev];
       });
 
-      // Scroll to the user approval section when new user is added
+      console.log('[PendingUsersClient] Adding new user to UI:', newUser);
+      
+      // Scroll to the approval section after a short delay
       setTimeout(() => {
         const approvalSection = document.getElementById('user-approvals');
         if (approvalSection) {
+          console.log('[PendingUsersClient] Scrolling to approval section');
           approvalSection.scrollIntoView({ behavior: 'smooth' });
+        } else {
+          console.log('[PendingUsersClient] Could not find approval section element');
         }
       }, 100);
-    });
+    };
 
     // Handle user approval/rejection updates
-    channel.bind('user-approved', (data: { userId: number }) => {
+    const handleUserApproved = (data: { userId: number }) => {
       setPendingUsers(prev => prev.filter(user => user.id !== data.userId));
-    });
-
-    return () => {
-      channel.unbind_all();
-      channel.unsubscribe();
     };
-  }, [session?.user?.id]);
+
+    channel.bind('user-registered', handleUserRegistered);
+    channel.bind('user-approved', handleUserApproved);
+
+    // Cleanup on unmount
+    return () => {
+      console.log('[PendingUsersClient] Cleaning up Pusher subscription');
+      channel.unbind('user-registered', handleUserRegistered);
+      channel.unbind('user-approved', handleUserApproved);
+      pusherClient.unsubscribe(channelName);
+    };
+  }, [session]);
 
   // Update pending users when a user is approved/rejected
   const handleUserUpdate = (userId: number) => {

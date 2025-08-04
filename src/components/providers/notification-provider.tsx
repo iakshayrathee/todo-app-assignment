@@ -1,10 +1,11 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { pusherClient } from '@/lib/pusher';
 import { toast } from 'sonner';
 import type { Channel } from 'pusher-js';
+import { useRouter } from 'next/navigation';
 
 interface Notification {
   id: string;
@@ -29,8 +30,9 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
-export function NotificationProvider({ children }: { children: ReactNode }) {
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { data: session } = useSession();
+  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const channelRef = useRef<Channel | null>(null);
 
@@ -38,16 +40,16 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const generateId = () => Math.random().toString(36).substring(2, 11);
 
   // Add a new notification (store only, don't show toast to avoid duplicates)
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>, id?: string, timestamp?: Date) => {
     const newNotification: Notification = {
       ...notification,
-      id: generateId(),
-      timestamp: new Date(),
+      id: id || generateId(),
+      timestamp: timestamp || new Date(),
       read: false,
     };
 
     setNotifications((prev) => [newNotification, ...prev]);
-  }, [setNotifications]);
+  }, []);
 
   // Mark a notification as read
   const markAsRead = (id: string) => {
@@ -65,6 +67,79 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const clearAllNotifications = () => {
     setNotifications([]);
   };
+
+  // Handle recent todo notifications for admin users
+  const handleRecentTodo = useCallback(
+    (data: {
+      todoId: number;
+      todoTitle: string;
+      userId: number;
+      userName: string;
+      action: "created" | "updated" | "completed" | "deleted";
+      timestamp: string;
+    }) => {
+      console.log('[NotificationProvider] Received recent-todo event:', data);
+      
+      // Only show notifications to admins
+      const user = session?.user as { id: string; role: string } | undefined;
+      if (user?.role !== "admin") {
+        console.log('[NotificationProvider] Ignoring recent-todo event - user is not admin');
+        return;
+      }
+
+      console.log('[NotificationProvider] Processing recent-todo for admin user:', user?.id);
+
+      // Determine notification type based on action
+      let type: "info" | "success" | "warning" = "info";
+      let title = "";
+
+      switch (data.action) {
+        case "created":
+          type = "info";
+          title = `New Todo Created: ${data.todoTitle}`;
+          break;
+        case "updated":
+          type = "info";
+          title = `Todo Updated: ${data.todoTitle}`;
+          break;
+        case "completed":
+          type = "success";
+          title = `Todo Completed: ${data.todoTitle}`;
+          break;
+        case "deleted":
+          type = "warning";
+          title = `Todo Deleted: ${data.todoTitle}`;
+          break;
+      }
+
+      console.log('[NotificationProvider] Creating notification with title:', title);
+
+      // Add notification to state
+      const notificationId = `todo-${data.todoId}-${data.action}-${Date.now()}`;
+      addNotification({
+        title,
+        message: `By ${data.userName}`,
+        type,
+      }, notificationId, new Date(data.timestamp));
+
+      // Show toast notification
+      toast(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">{title}</span>
+          <span className="text-sm">By {data.userName}</span>
+        </div>,
+        {
+          action: {
+            label: "View",
+            onClick: () => router.push("/admin"),
+          },
+        }
+      );
+
+      console.log('[NotificationProvider] Finished processing recent-todo event');
+    },
+    [session?.user, addNotification, router]
+  );
 
   // Set up Pusher subscription
   useEffect(() => {
@@ -129,7 +204,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
     // Listen for new notifications (store and show toast)
     const handleTaskDue = (data: { taskId: string; title: string; dueDate: string }) => {
-      console.log('Received notification event on channel:', channelName, data);
+      console.log('Received task due notification on channel:', channelName, data);
       
       // Store the notification
       addNotification({
@@ -195,6 +270,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     channelRef.current.bind('task_due', handleTaskDue);
     channelRef.current.bind('user-registered', handleUserRegistered);
     channelRef.current.bind('user-approved', handleUserApproved);
+    channelRef.current.bind('recent-todo', handleRecentTodo);
 
     // Log all events received on the channel (for debugging)
     channelRef.current.bind_global((eventName: string, data: Record<string, unknown>) => {
@@ -230,7 +306,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         pusherClient.unsubscribe('private-admin');
       }
     };
-  }, [session, addNotification]);
+  }, [session, addNotification, router, handleRecentTodo]);
 
   // Calculate unread count
   const unreadCount = notifications.filter((n) => !n.read).length;

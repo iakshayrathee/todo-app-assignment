@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { todos, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { sendTaskCompleteNotification } from '@/lib/notifications';
+import { sendTaskCompleteNotification, sendRecentTodoNotification } from '@/lib/notifications';
 import { pusherServer } from '@/lib/pusher';
 
 export async function POST(request: NextRequest) {
@@ -61,6 +61,14 @@ export async function POST(request: NextRequest) {
         await sendTaskCompleteNotification(
           updatedTodo.title,
           user.name || user.email || 'A user'
+        );
+        
+        // Also send recent todo notification for completion
+        await sendRecentTodoNotification(
+          updatedTodo.id,
+          updatedTodo.title,
+          userId,
+          'completed'
         );
       }
     }

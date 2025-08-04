@@ -4,7 +4,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "sonner";
 import { Providers } from "@/components/providers";
-import { NotificationProvider } from "@/components/providers/notification-provider";
+import { ToastProvider } from "@/components/providers/toast-provider";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -33,22 +33,22 @@ export default function RootLayout({
         >
           <ErrorBoundary>
             <Providers>
-              <NotificationProvider>
+              <ToastProvider>
                 {children}
                 <Toaster 
-                  position="top-right"
-                  expand={true}
-                  richColors
-                  closeButton
-                  toastOptions={{
-                    style: {
-                      background: 'hsl(var(--background))',
-                      border: '1px solid hsl(var(--border))',
-                      color: 'hsl(var(--foreground))',
-                    },
-                  }}
-                />
-              </NotificationProvider>
+                position="top-right"
+                expand={true}
+                richColors
+                closeButton
+                toastOptions={{
+                  style: {
+                    background: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    color: 'hsl(var(--foreground))',
+                  },
+                }}
+              />
+              </ToastProvider>
             </Providers>
           </ErrorBoundary>
         </ThemeProvider>

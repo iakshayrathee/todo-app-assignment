@@ -167,3 +167,100 @@ export async function sendNewUserNotification(
     console.error('Error sending new user notification:', error);
   }
 }
+
+// Helper function to send recent todo notification
+export async function sendRecentTodoNotification(
+  todoId: number,
+  todoTitle: string,
+  todoUserId: number,
+  action: 'created' | 'updated' | 'completed' | 'deleted'
+) {
+  try {
+    if (!isPusherConfigured || !pusherServer) {
+      console.log('Recent todo notification (Pusher not configured):', { todoId, todoTitle, todoUserId, action });
+      return;
+    }
+
+    // Get the user who owns the todo
+    const user = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, todoUserId))
+      .limit(1);
+
+    if (!user.length) {
+      console.error('User not found for todo notification');
+      return;
+    }
+
+    const userName = user[0].name;
+
+    // Get all admins to notify them
+    const admins = await db
+      .select()
+      .from(users)
+      .where(eq(users.role, 'admin'));
+
+    // Send both notification and real-time update to each admin
+    for (const admin of admins) {
+      // Determine notification details based on action
+      let title = '';
+      let message = '';
+      let type: NotificationType = 'info';
+
+      switch (action) {
+        case 'created':
+          title = 'New Todo Created';
+          message = `${userName} created a new todo: "${todoTitle}"`;
+          type = 'info';
+          break;
+        case 'updated':
+          title = 'Todo Updated';
+          message = `${userName} updated todo: "${todoTitle}"`;
+          type = 'info';
+          break;
+        case 'completed':
+          title = 'Todo Completed';
+          message = `${userName} completed todo: "${todoTitle}"`;
+          type = 'success';
+          break;
+        case 'deleted':
+          title = 'Todo Deleted';
+          message = `${userName} deleted todo: "${todoTitle}"`;
+          type = 'warning';
+          break;
+      }
+
+      // Send notification
+      await pusherServer.trigger(
+        `private-user-${admin.id}`,
+        'notification',
+        {
+          type,
+          title,
+          message,
+          action: {
+            label: 'View Todos',
+            url: '/admin'
+          }
+        }
+      );
+
+      // Send real-time data update for UI
+      await pusherServer.trigger(
+        `private-user-${admin.id}`,
+        'recent-todo',
+        {
+          todoId,
+          todoTitle,
+          userId: todoUserId,
+          userName,
+          action,
+          timestamp: new Date().toISOString()
+        }
+      );
+    }
+  } catch (error) {
+    console.error('Error sending recent todo notification:', error);
+  }
+}
