@@ -28,23 +28,23 @@ For testing purposes, you can use these pre-configured accounts:
 ## 📸 Screenshots
 
 ### Admin Dashboard
-![Admin Dashboard](/images/admin-dashboard.png)
+![Admin Dashboard](public/images/admin-dashboard.png)
 *Comprehensive admin dashboard with user management, statistics, and system overview*
 
 ### User Dashboard
-![User Dashboard](/images/user-dashboard.png)
+![User Dashboard](public/images/user-dashboard.png)
 *Clean and intuitive user interface for managing personal todos*
 
 ### Todo Management
-![Todo Management](/images/todo-management.png)
+![Todo Management](public/images/todo-management.png)
 *Advanced todo management with filtering, search, and bulk operations*
 
 ### Real-time Features
-![Real-time Features](/images/realtime-features.png)
+![Real-time Features](public/images/realtime-features.png)
 *Live notifications and real-time updates powered by Pusher*
 
 ### Database Overview
-![Database Overview](/images/database-overview.png)
+![Database Overview](public/images/database-overview.png)
 *PostgreSQL database with users and todos tables*
 
 ## 🚀 Features
