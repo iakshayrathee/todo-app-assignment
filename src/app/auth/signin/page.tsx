@@ -31,11 +31,16 @@ export default function SignIn() {
     setIsLoading(true);
     
     try {
-      // First, get the user's role by making a sign-in attempt
+      // Get the callback URL from search params or default to dashboard
+      const urlParams = new URLSearchParams(window.location.search);
+      const callbackUrl = urlParams.get('callbackUrl') || '/dashboard';
+      
+      // Perform sign-in with NextAuth's built-in redirect handling
       const signInResult = await signIn('credentials', {
         email: values.email,
         password: values.password,
-        redirect: false,
+        callbackUrl,
+        redirect: false, // We'll handle redirect manually after success
       });
 
       if (signInResult?.error) {
@@ -48,25 +53,33 @@ export default function SignIn() {
         return;
       }
 
-      // Get the session to determine user role
-      const session = await getSession();
-      const isAdmin = session?.user?.role === 'admin';
-      const redirectPath = isAdmin ? '/admin' : '/dashboard';
-      const userName = session?.user?.name || 'User';
-      
-      // Show success message
-      showSuccessToast.signInSuccess(userName);
-      
-      // Perform the actual sign-in with the correct redirect URL
-      await signIn('credentials', {
-        email: values.email,
-        password: values.password,
-        redirect: false,
-        callbackUrl: redirectPath
-      });
-      
-      // Force a full page reload to ensure auth state is properly set
-      window.location.href = redirectPath;
+      if (signInResult?.ok) {
+        // Get the session to determine user role and show success message
+        const session = await getSession();
+        const userName = session?.user?.name || 'User';
+        const isAdmin = session?.user?.role === 'admin';
+        
+        // Show success message
+        showSuccessToast.signInSuccess(userName);
+        
+        // Determine the correct redirect path based on user role
+        let redirectPath = callbackUrl;
+        
+        // If user is admin and trying to access dashboard, redirect to admin
+        if (isAdmin && callbackUrl === '/dashboard') {
+          redirectPath = '/admin';
+        }
+        // If user is not admin and trying to access admin, redirect to dashboard
+        else if (!isAdmin && callbackUrl.startsWith('/admin')) {
+          redirectPath = '/dashboard';
+        }
+        
+        // Use router.push for client-side navigation
+        router.push(redirectPath);
+      } else {
+        handleApiError(new Error('Sign in failed. Please try again.'));
+        setIsLoading(false);
+      }
     } catch (error) {
       setIsLoading(false);
       handleApiError(error, 'Failed to sign in');
