@@ -31,36 +31,45 @@ export default function SignIn() {
     setIsLoading(true);
     
     try {
-      const result = await signIn('credentials', {
+      // First, get the user's role by making a sign-in attempt
+      const signInResult = await signIn('credentials', {
         email: values.email,
         password: values.password,
         redirect: false,
       });
 
-      if (result?.error) {
-        if (result.error.includes('pending approval')) {
+      if (signInResult?.error) {
+        if (signInResult.error.includes('pending approval')) {
           handleApiError(new Error('Your account is pending admin approval. Please wait for approval before signing in.'));
         } else {
           handleApiError(new Error('Invalid email or password. Please check your credentials and try again.'));
         }
+        setIsLoading(false);
         return;
       }
 
-      // Get session to determine redirect
+      // Get the session to determine user role
       const session = await getSession();
-      const userName = session?.user?.name;
+      const isAdmin = session?.user?.role === 'admin';
+      const redirectPath = isAdmin ? '/admin' : '/dashboard';
+      const userName = session?.user?.name || 'User';
       
-      showSuccessToast.signInSuccess(userName || undefined);
+      // Show success message
+      showSuccessToast.signInSuccess(userName);
       
-      if (session?.user?.role === 'admin') {
-        router.push('/admin');
-      } else {
-        router.push('/dashboard');
-      }
+      // Perform the actual sign-in with the correct redirect URL
+      await signIn('credentials', {
+        email: values.email,
+        password: values.password,
+        redirect: false,
+        callbackUrl: redirectPath
+      });
+      
+      // Force a full page reload to ensure auth state is properly set
+      window.location.href = redirectPath;
     } catch (error) {
-      handleApiError(error, 'Failed to sign in');
-    } finally {
       setIsLoading(false);
+      handleApiError(error, 'Failed to sign in');
     }
   };
 
