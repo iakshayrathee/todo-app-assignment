@@ -22,7 +22,7 @@ export default function Home() {
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
                 <Button size="lg" asChild className="gap-2">
-                  <Link href="/dashboard">
+                  <Link href="https://todo-app-assignment-gamma.vercel.app/auth/signin">
                     Get Started <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
@@ -108,12 +108,12 @@ export default function Home() {
             </div>
             <div className="flex flex-col gap-2 min-[400px]:flex-row">
               <Button size="lg" asChild className="gap-2">
-                <Link href="/dashboard">
+                <Link href="https://todo-app-assignment-gamma.vercel.app/auth/signin">
                   Get Started <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/auth/signin">Sign In</Link>
+                <Link href="https://todo-app-assignment-gamma.vercel.app/auth/signin">Sign In</Link>
               </Button>
             </div>
           </div>
